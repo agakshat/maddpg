@@ -1,5 +1,5 @@
 import tensorflow as tf
-import gym
+from gym import wrappers
 import make_env
 import numpy as np
 #import random
@@ -7,6 +7,7 @@ import numpy as np
 from ExplorationNoise import OrnsteinUhlenbeckActionNoise as OUNoise
 from actorcritic import ActorNetwork,CriticNetwork
 from Train import train
+import argparse
 
 def main(args):
 
@@ -22,11 +23,12 @@ def main(args):
         for i in range(n):
             total_action_dim = total_action_dim + env.action_space[i].n
         for i in range(n):
-            observation_dim[i] = env.observation_space[i].shape
-            action_dim[i] = env.action_space[i].n # assuming discrete action space here -> otherwise change to something like env.action_space[i].shape[0]
-            actors.append(ActorNetwork(sess,n,observation_dim[i],action_dim[i],float(args['actor_lr']),float(args['tau']))
+            observation_dim.append(env.observation_space[i].shape[0])
+            action_dim.append(env.action_space[i].n) # assuming discrete action space here -> otherwise change to something like env.action_space[i].shape[0]
+            actors.append(ActorNetwork(sess,n,observation_dim[i],action_dim[i],float(args['actor_lr']),float(args['tau'])))
             critics.append(CriticNetwork(sess,n,observation_dim[i],total_action_dim,float(args['actor_lr']),float(args['tau']),float(args['gamma']),actors[i].getNumTrainableVars()))
             exploration_noise.append(OUNoise(mu = np.zeros(action_dim[i])))
+
         if args['use_gym_monitor']:
             if not args['render_env']:
                 env = wrappers.Monitor(env, args['monitor_dir'], video_callable=False, force=True)
@@ -62,6 +64,6 @@ if __name__ == '__main__':
 
     args = vars(parser.parse_args())
 
-    pp.pprint(args)
+    #pp.pprint(args)
 
     main(args)

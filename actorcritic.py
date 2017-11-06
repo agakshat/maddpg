@@ -15,16 +15,16 @@ class ActorNetwork(object):
 		self.lr = learning_rate
 		self.tau = target_update_param
 		
-		self.input,self.output = self.initializeActorNetwork()
+		self.input,self.gumbel_output,self.argmax_output = self.initializeActorNetwork()
 		self.network_params = tf.trainable_variables()
 
-		self.target_input,self.target_output = self.initializeActorNetwork()
+		self.target_input,self.gumbel_target_output,self.argmax_target_output = self.initializeActorNetwork()
 		self.target_network_params = tf.trainable_variables()[len(self.network_params):]
 		
 		self.update_target_network_params = [self.target_network_params[i].assign(tf.multiply(self.network_params[i],self.tau)+tf.multiply(self.target_network_params[i],1.0-self.tau)) for i in range(len(self.target_network_params))]
 		self.action_gradient = tf.placeholder(tf.float32,[None,self.output_dim])
 		
-		self.actor_gradient = tf.gradients(self.output,self.network_params,-self.action_gradient)
+		self.actor_gradient = tf.gradients(self.gumbel_output,self.network_params,-self.action_gradient)
 		self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(zip(self.actor_gradient,self.network_params))
 		
 		self.num_trainable_vars = len(self.network_params) + len(self.target_network_params)
@@ -39,18 +39,19 @@ class ActorNetwork(object):
 		net = tflearn.activations.relu(net)
 		w_init = tflearn.initializations.uniform(minval = -0.003, maxval = 0.003)
 		net = tflearn.fully_connected(net,self.output_dim,activation='softmax',weights_init=w_init)
-		out = tf.contrib.distributions.RelaxedOneHotCategorical(0.1,probs=out)
+		gumbel_out = tf.contrib.distributions.RelaxedOneHotCategorical(0.1,probs=net).sample()
+		argmax_out = tf.one_hot(tf.argmax(net),self.output_dim)
 		#scaled_out = tf.multiply(out,self.action_bound)
-		return inputs,out
+		return inputs,gumbel_out,argmax_out
 
 	def train(self,inputs,action_gradient):
 		self.sess.run(self.optimize,feed_dict = {self.input: inputs, self.action_gradient: action_gradient})
 
 	def predict(self,inputs):
-		return self.sess.run(self.output,feed_dict = {self.input: inputs})
+		return self.sess.run(self.argmax_output,feed_dict = {self.input: inputs})
 
 	def predictTarget(self,target_inputs):
-		return self.sess.run(self.target_output,feed_dict = {self.target_input: target_inputs})
+		return self.sess.run(self.argmax_target_output,feed_dict = {self.target_input: target_inputs})
 
 	def updateTargetNetwork(self):
 		self.sess.run(self.update_target_network_params)
@@ -83,12 +84,12 @@ class CriticNetwork(object):
 	def initializeCriticNetwork(self):
 		inputs = tflearn.input_data(shape = [None,self.input_dim])
 		action = tflearn.input_data(shape = [None,self.output_dim])
-		net = tflearn.fully_connected(inputs,400)
+		net = tflearn.fully_connected(inputs,64)
 		net = tflearn.layers.normalization.batch_normalization(net)
 		net = tflearn.activations.relu(net)
 
-		temp1 = tflearn.fully_connected(net,300)
-		temp2 = tflearn.fully_connected(action,300)
+		temp1 = tflearn.fully_connected(net,64)
+		temp2 = tflearn.fully_connected(action,64)
 		net = tflearn.activation(tf.matmul(net,temp1.W)+tf.matmul(action,temp2.W)+temp2.b,activation = 'relu')
 		
 		w_init = tflearn.initializations.uniform(minval = -0.003,maxval = 0.003)
