@@ -41,6 +41,8 @@ def train(sess,env,args,actors,critics,noise):
 				env.render()
 
 			a = []
+			action_dims_done = 0
+
 			for i in range(env.n):
 				actor = actors[i]
 				a.append(actor.act(np.reshape(s[i],(-1,actor.state_dim)),noise[i]()).reshape(actor.action_dim,))
@@ -85,17 +87,18 @@ def train(sess,env,args,actors,critics,noise):
 					a_temp = np.transpose(np.asarray(actions_pred),(1,0,2))
 					a_for_critic_pred = np.asarray([x.flatten() for x in a_temp])
 					s_batch_i = np.asarray([x for x in s_batch[:,i]])
-					grads = critic.action_gradients(s_batch_i,a_for_critic_pred)
+					grads = critic.action_gradients(s_batch_i,a_for_critic_pred)[:,action_dims_done:action_dims_done + actor.action_dim]
 					actor.train(s_batch_i,grads)
-					
+					#print("Training agent {}".format(i))
 					actor.update_target()
 					critic.update_target()
 
+			action_dims_done = action_dims_done + actor.action_dim
 			episode_reward += r
-			if done:
+			if np.all(done):
 				#summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: episode_reward, summary_vars[1]: episode_av_max_q/float(stp)})
 				summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: np.sum(episode_reward)})
-				writer.add_summary(summary_str,ep)
+				writer.action_dims_donesummary(summary_str,ep)
 				writer.flush()
 				#print ('|Reward: {:d}| Episode: {:d}| Qmax: {:.4f}'.format(int(episode_reward),ep,(episode_av_max_q/float(stp))))
 				print ('|Reward: {:d},{:d},{:d},{:d}	| Episode: {:d}'.format(int(episode_reward[0]),int(episode_reward[1]),int(episode_reward[2]),int(episode_reward[3]),ep))

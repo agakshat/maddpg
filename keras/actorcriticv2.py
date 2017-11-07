@@ -12,6 +12,7 @@ class ActorNetwork(object):
 	def __init__(self,sess,state_dim,action_dim,lr,tau):
 		self.sess = sess
 		K.set_session(sess)
+		K.set_learning_phase(1)
 		self.state_dim = state_dim
 		self.action_dim = action_dim
 		self.lr =  lr
@@ -71,6 +72,7 @@ class CriticNetwork(object):
 	def __init__(self,sess,num_agents,state_dim,action_dim,lr,tau,gamma):
 		self.sess = sess
 		K.set_session(sess)
+		K.set_learning_phase(1)
 		self.state_dim = state_dim
 		self.action_dim = action_dim
 		self.lr =  lr
