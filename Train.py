@@ -5,89 +5,103 @@ import random
 from ReplayMemory import ReplayMemory
 #from actorcritic import ActorNetwork,CriticNetwork
 
-def build_summaries():
-	episode_reward = tf.Variable(0.)
+def build_summaries(n):
+	#episode_reward = tf.get_variable("episode_reward",[1,n])
+	episode_reward =   tf.Variable(0.)
 	tf.summary.scalar("Reward",episode_reward)
-	episode_ave_max_q = tf.Variable(0.)
-	tf.summary.scalar("QMaxValue",episode_ave_max_q)
-	summary_vars = [episode_reward,episode_ave_max_q]
+	#episode_ave_max_q = tf.Variable("episode_av_max_")
+	#tf.summary.scalar("QMaxValue",episode_ave_max_q)
+	#summary_vars = [episode_reward,episode_ave_max_q]
+	summary_vars = [episode_reward]
 	summary_ops = tf.summary.merge_all()
 	return summary_ops, summary_vars
 
-def train(self,sess,env,args,actors,critics,noise):
+def train(sess,env,args,actors,critics,noise):
 
-	summary_ops,summary_vars = build_summaries()
+	summary_ops,summary_vars = build_summaries(env.n)
 	init = tf.global_variables_initializer()
 	sess.run(init)
 	writer = tf.summary.FileWriter(args['summary_dir'],sess.graph)
 
 	for actor in actors:
-		actor.updateTargetNetwork()
+		actor.update_target()
 	for critic in critics:
-		critic.updateTargetNetwork()
+		critic.update_target()
 	
 	replayMemory = ReplayMemory(int(args['buffer_size']),int(args['random_seed']))
 
-	for i in range(int(args['max_episodes'])):
+	for ep in range(int(args['max_episodes'])):
 
 		s = env.reset()
-		episode_reward = 0
-		episode_av_max_q = 0
+		episode_reward = np.zeros((env.n,))
+		#episode_av_max_q = 0
 
-		for j in range(int(args['max_episode_len'])):
+		for stp in range(int(args['max_episode_len'])):
 			if args['render_env']:
 				env.render()
 
 			a = []
-			for i in range(n):
+			action_dims_done = 0
+
+			for i in range(env.n):
 				actor = actors[i]
-				a.append(np.asarray(actor.predict(np.reshape(s[i],(1,actor.input_dim))) + noise()))
+				a.append(actor.act(np.reshape(s[i],(-1,actor.state_dim)),noise[i]()).reshape(actor.action_dim,))
 						
-			s2,r,done,_ = env.step(a)
+			s2,r,done,_ = env.step(a) # a is a list with each element being an array
 			#replayMemory.add(np.reshape(s,(actor.input_dim,)),np.reshape(a,(actor.output_dim,)),r,done,np.reshape(s2,(actor.input_dim,)))
 			replayMemory.add(s,a,r,done,s2)
 			s = s2
 
-			for i in range(n):
+			for i in range(env.n):
 				actor = actors[i]
 				critic = critics[i]
 				if replayMemory.size()>int(args['minibatch_size']):
 
 					s_batch,a_batch,r_batch,d_batch,s2_batch = replayMemory.miniBatch(int(args['minibatch_size']))
 					a = []
-					for i in range(n):
-						s_batch_i = s2_batch.transpose()[i]
-						a.append(actors[i].predictTarget(s_batch_i))
+					for j in range(env.n):
+						state_batch_j = np.asarray([x for x in s_batch[:,j]]) #batch processing will be much more efficient even though reshaping will have to be done
+						a.append(actors[j].predict_target(state_batch_j))
 
-					targetQ = critic.predictTarget(s2_batch,a)
+					a_temp = np.transpose(np.asarray(a),(1,0,2))
+					a_for_critic = np.asarray([x.flatten() for x in a_temp])
+					s2_batch_i = np.asarray([x for x in s2_batch[:,i]]) # Checked till this point, should be fine.
+					targetQ = critic.predict_target(s2_batch_i,a_for_critic) # Should  work, probably
+
 					yi = []
 					for k in range(int(args['minibatch_size'])):
-						if d_batch.transpose()[i][k]:
-							yi.append(r_batch.transpose()[i][k])
+						if d_batch[:,i][k]:
+							yi.append(r_batch[:,i][k])
 						else:
-							yi.append(r_batch.transpose()[i][k] + critic.gamma*targetQ[k])
-					
-					predictedQValue,_ = critic.train(s_batch,a_batch,np.reshape(yi,(int(args['minibatch_size']),1)))
-					episode_av_max_q += np.amax(predictedQValue)
+							yi.append(r_batch[:,i][k] + critic.gamma*targetQ[k])
+					s_batch_i = np.asarray([x for x in s_batch[:,i]])
+					critic.train(s_batch_i,np.asarray([x.flatten() for x in a_batch]),np.asarray(yi))
+					#predictedQValue = critic.train(s_batch,np.asarray([x.flatten() for x in a_batch]),yi)
+					#episode_av_max_q += np.amax(predictedQValue)
 					
 					actions_pred = []
-					for i in range(n):
-						s_batch_i = s2_batch.transpose()[i]
-						actions_pred.append(actors[i].predict(s_batch_i))
+					for j in range(env.n):
+						state_batch_j = np.asarray([x for x in  s2_batch[:,j]])
+						actions_pred.append(actors[j].predict(state_batch_j)) # Should work till here, roughly, probably
 
-					#actions_pred = actor.predict(s_batch)
-					grads = critic.actionGradients(s_batch,actions_pred)
-					actor.train(s_batch,grads[0])
-					
-					actor.updateTargetNetwork()
-					critic.updateTargetNetwork()
+					a_temp = np.transpose(np.asarray(actions_pred),(1,0,2))
+					a_for_critic_pred = np.asarray([x.flatten() for x in a_temp])
+					s_batch_i = np.asarray([x for x in s_batch[:,i]])
+					grads = critic.action_gradients(s_batch_i,a_for_critic_pred)[:,action_dims_done:action_dims_done + actor.action_dim]
+					actor.train(s_batch_i,grads)
+					#print("Training agent {}".format(i))
+					actor.update_target()
+					critic.update_target()
 
+			action_dims_done = action_dims_done + actor.action_dim
 			episode_reward += r
-			if done:
-				summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: episode_reward, summary_vars[1]: episode_av_max_q/float(j)})
-				writer.add_summary(summary_str,i)
+			if np.all(done):
+				#summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: episode_reward, summary_vars[1]: episode_av_max_q/float(stp)})
+				summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: np.sum(episode_reward)})
+				writer.action_dims_donesummary(summary_str,ep)
 				writer.flush()
-				print ('|Reward: {:d}| Episode: {:d}| Qmax: {:.4f}'.format(int(episode_reward),i,(episode_av_max_q/float(j))))
+				#print ('|Reward: {:d}| Episode: {:d}| Qmax: {:.4f}'.format(int(episode_reward),ep,(episode_av_max_q/float(stp))))
+				print ('|Reward: {:d},{:d},{:d},{:d}	| Episode: {:d}'.format(int(episode_reward[0]),int(episode_reward[1]),int(episode_reward[2]),int(episode_reward[3]),ep))
 				break
 
 
