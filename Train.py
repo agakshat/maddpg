@@ -31,7 +31,6 @@ def train(sess,env,args,actors,critics,noise):
 	replayMemory = ReplayMemory(int(args['buffer_size']),int(args['random_seed']))
 
 	for ep in range(int(args['max_episodes'])):
-
 		s = env.reset()
 		episode_reward = np.zeros((env.n,))
 		#episode_av_max_q = 0
@@ -39,7 +38,7 @@ def train(sess,env,args,actors,critics,noise):
 		for stp in range(int(args['max_episode_len'])):
 			if args['render_env']:
 				env.render()
-
+			#print("episode {}, step {}".format(ep,stp))
 			a = []
 			action_dims_done = 0
 
@@ -95,13 +94,17 @@ def train(sess,env,args,actors,critics,noise):
 
 			action_dims_done = action_dims_done + actor.action_dim
 			episode_reward += r
+			#print(done)
 			if np.all(done):
 				#summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: episode_reward, summary_vars[1]: episode_av_max_q/float(stp)})
 				summary_str = sess.run(summary_ops, feed_dict = {summary_vars[0]: np.sum(episode_reward)})
-				writer.action_dims_donesummary(summary_str,ep)
+				writer.add_summary(summary_str,ep)
 				writer.flush()
 				#print ('|Reward: {:d}| Episode: {:d}| Qmax: {:.4f}'.format(int(episode_reward),ep,(episode_av_max_q/float(stp))))
 				print ('|Reward: {:d},{:d},{:d},{:d}	| Episode: {:d}'.format(int(episode_reward[0]),int(episode_reward[1]),int(episode_reward[2]),int(episode_reward[3]),ep))
 				break
+
+			if stp == int(args['max_episode_len'])-1:
+				print ('|Reward: {:d},{:d},{:d},{:d}	| Episode: {:d}'.format(int(episode_reward[0]),int(episode_reward[1]),int(episode_reward[2]),int(episode_reward[3]),ep))
 
 

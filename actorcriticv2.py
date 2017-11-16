@@ -44,7 +44,7 @@ class ActorNetwork(object):
 		h = BatchNormalization()(h)
 		h = Dense(self.action_dim)(h)
 		pred = Activation('softmax')(h)
-
+		#pred = tf.contrib.distributions.RelaxedOneHotCategorical(0.1,probs=h).sample()
 		model = Model(inputs=input_obs,outputs=pred)
 		model.compile(optimizer='Adam',loss='categorical_crossentropy')
 		return model,model.trainable_weights,input_obs

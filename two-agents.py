@@ -60,7 +60,7 @@ if __name__ == '__main__':
     parser.add_argument('--monitor-dir', help='directory for storing gym results', default='./results/gym_ddpg_3')
     parser.add_argument('--summary-dir', help='directory for storing tensorboard info', default='./results/tf_ddpg_3')
 
-    parser.set_defaults(render_env=True)
+    parser.set_defaults(render_env=False)
     parser.set_defaults(use_gym_monitor=True)
 
     args = vars(parser.parse_args())
