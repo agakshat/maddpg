@@ -12,7 +12,7 @@ import argparse
 def main(args):
 
     with tf.Session() as sess:
-        env  = make_env.make_env('simple_spread')
+        env  = make_env.make_env('simple_tag')
         n = env.n
         actors = []
         critics = []
