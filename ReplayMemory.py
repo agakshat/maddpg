@@ -17,7 +17,7 @@ class ReplayMemory(object):
 		return len(self.buffer)
 
 	def miniBatch(self,batch_size):
-		miniBatch = random.sample(self.buffer,min(len(self.buffer),batch_size))
+		miniBatch = random.sample(list(self.buffer),min(len(self.buffer),batch_size))
 		state_batch = np.array([_[0] for _ in miniBatch])
 		action_batch = np.array([_[1] for _ in miniBatch])
 		reward_batch = np.array([_[2] for _ in miniBatch])

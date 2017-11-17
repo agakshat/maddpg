@@ -34,7 +34,18 @@ def train(sess,env,args,actors,critics,noise):
 		s = env.reset()
 		episode_reward = np.zeros((env.n,))
 		#episode_av_max_q = 0
-
+		if ep%100==0:
+			for k in range(env.n):
+				file1 = 'results/actor'+str(k)+'/main'+str(ep)+'.h5'
+				file2 = 'results/actor'+str(k)+'/target'+str(ep)+'.h5'
+				file3 = 'results/critic'+str(k)+'/main'+str(ep)+'.h5'
+				file4 = 'results/critic'+str(k)+'/target'+str(ep)+'.h5'
+				actor = actors[k]
+				critic = critics[k]
+				actor.mainModel.save(file1)
+				actor.targetModel.save(file2)
+				critic.mainModel.save(file3)
+				critic.targetModel.save(file4)
 		for stp in range(int(args['max_episode_len'])):
 			if args['render_env']:
 				env.render()
@@ -101,7 +112,7 @@ def train(sess,env,args,actors,critics,noise):
 				writer.add_summary(summary_str,ep)
 				writer.flush()
 				#print ('|Reward: {:d}| Episode: {:d}| Qmax: {:.4f}'.format(int(episode_reward),ep,(episode_av_max_q/float(stp))))
-				print ('|Reward: {:d},{:d},{:d},{:d}	| Episode: {:d}'.format(int(episode_reward[0]),int(episode_reward[1]),int(episode_reward[2]),int(episode_reward[3]),ep))
+				print ('|Reward: {:d},{:d},{:d}	| Episode: {:d}'.format(int(episode_reward[0]),int(episode_reward[1]),int(episode_reward[2]),ep))
 				break
 
 			if stp == int(args['max_episode_len'])-1:
