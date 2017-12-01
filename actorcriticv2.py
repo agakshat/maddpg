@@ -1,9 +1,10 @@
 import tensorflow as tf
-import numpy as  np
+import numpy as np
 from keras.models import Model
-from keras.layers import Dense,Input,BatchNormalization,Concatenate,Activation
+from keras.layers import Dense,Input,BatchNormalization,Add,Activation,Lambda
 from keras.optimizers import Adam
 import keras.backend as K
+#from utils import onehot_argmax_layer
 
 class ActorNetwork(object):
 	"""
@@ -24,27 +25,18 @@ class ActorNetwork(object):
 		grads = zip(self.params_grad,self.mainModel_weights)
 		self.optimize = tf.train.AdamOptimizer(self.lr).apply_gradients(grads)
 		self.sess.run(tf.global_variables_initializer())
-	'''
-	def _build_model(self):
-		model = Sequential()
-		model.add(Dense(64,input_dim = self.state_dim, activation = 'relu'))
-		model.add()
-		model.add(Dense(64, activation = 'relu'))
-		model.add(Dense(self.action_dim, activation = 'softmax'))
-		model.compile(optimizer=Adam,loss='categorical_crossentropy',metrics=['accuracy'])
-		return model
-	'''
+
 	def _build_model(self):
 		input_obs = Input(shape=(self.state_dim,))
-		h = Dense(64)(input_obs)
+		h = Dense(400)(input_obs)
 		h = Activation('relu')(h)
-		h = BatchNormalization()(h)
-		h = Dense(64)(h)
+		#h = BatchNormalization()(h)
+		h = Dense(300)(h)
 		h = Activation('relu')(h)
-		h = BatchNormalization()(h)
+		#h = BatchNormalization()(h)
 		h = Dense(self.action_dim)(h)
-		pred = Activation('softmax')(h)
-		#pred = tf.contrib.distributions.RelaxedOneHotCategorical(0.1,probs=h).sample()
+		h = Activation('softmax')(h)
+		pred = Lambda(lambda h: tf.contrib.distributions.RelaxedOneHotCategorical(0.5,probs=h).sample())(h)
 		model = Model(inputs=input_obs,outputs=pred)
 		model.compile(optimizer='Adam',loss='categorical_crossentropy')
 		return model,model.trainable_weights,input_obs
@@ -62,7 +54,9 @@ class ActorNetwork(object):
 	def update_target(self):
 		wMain =  np.asarray(self.mainModel.get_weights())
 		wTarget = np.asarray(self.targetModel.get_weights())
-		self.targetModel.set_weights(self.tau*wMain + (1.0-self.tau)*wTarget)
+		for i in range(len(wMain)):
+			wTarget[i] = self.tau*wMain[i] + (1-self.tau)*wTarget[i]
+		self.targetModel.set_weights(wTarget)
 
 	def train(self,state,action_grad):
 		self.sess.run(self.optimize,feed_dict = {self.mainModel_state: state, self.action_gradient: action_grad})
@@ -87,16 +81,17 @@ class CriticNetwork(object):
 	def _build_model(self):
 		input_obs = Input(shape=(self.state_dim,))
 		input_actions = Input(shape=(self.action_dim,))
-		h = Dense(64)(input_obs)
+		h = Dense(400)(input_obs)
 		h = Activation('relu')(h)
-		h = BatchNormalization()(h)
-		action_abs = Dense(64)(input_actions)
-		action_abs = Activation('relu')(action_abs)
-		action_abs = BatchNormalization()(action_abs)
-		h = Concatenate()([h,action_abs])
-		h = Dense(64)(h)
+		#h = BatchNormalization()(h)
+		action_abs = Dense(300)(input_actions)
+		temp1 = Dense(300)(h)
+		#action_abs = Activation('relu')(action_abs)
+		#action_abs = BatchNormalization()(action_abs)
+		h = Add()([temp1,action_abs])
+		#h = Dense(64)(h)
 		h = Activation('relu')(h)
-		h = BatchNormalization()(h)
+		#h = BatchNormalization()(h)
 		pred = Dense(1,kernel_initializer='random_uniform')(h)
 		model = Model(inputs=[input_obs,input_actions],outputs=pred)
 		model.compile(optimizer='Adam',loss='mean_squared_error')
@@ -108,7 +103,9 @@ class CriticNetwork(object):
 	def update_target(self):
 		wMain =  np.asarray(self.mainModel.get_weights())
 		wTarget = np.asarray(self.targetModel.get_weights())
-		self.targetModel.set_weights(self.tau*wMain + (1.0-self.tau)*wTarget)
+		for i in range(len(wMain)):
+			wTarget[i] = self.tau*wMain[i] + (1-self.tau)*wTarget[i]
+		self.targetModel.set_weights(wTarget)
 
 	def predict_target(self, state, actions):
 		return self.targetModel.predict([state,actions])
@@ -121,4 +118,3 @@ class CriticNetwork(object):
 
 	def train(self, state, actions, labels):
 		self.mainModel.train_on_batch([state,actions],labels)
-		#return self.predict(state,actions)
