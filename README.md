@@ -14,7 +14,7 @@ How to use:
 3. Go into the maddpg directory here and run `python3 multiagent.py`. Should run straight out of the box.
 
 Code Breakdown:
-1. `multiagent.py` is the entry code which takes in user arguments for learning rates, episode length, discount factor etc, creates the actor and critic networks for each agent and calls the training function.
+1. `training-code.py` is the entry code which takes in user arguments for learning rates, episode length, discount factor etc, creates the actor and critic networks for each agent and calls the training function.
 2. `Train.py` implements the actual MADDPG algorithm
 3. `actorcriticv2.py` defines the Actor and Critic network classes
 4. `ReplayMemory.py` defines the Replay Memory class
