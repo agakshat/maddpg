@@ -20,3 +20,7 @@ Code Breakdown:
 4. `ReplayMemory.py` defines the Replay Memory class
 5. `ExplorationNoise.py` defines the Ornstein-Uhlenbeck Action Noise that has been used for exploration. I'm not sure if this is the right noise generation process that should be used.
 
+
+*To-Do*
+1. Instead of having a different policy for each agent, have one policy per team for the `simple_tag` environment, might be easier to learn. If anyone does this, please let me know of the results you got!
+2. Change the noise process from Ornstein-Uhlenbeck to something like epsilon-greedy, or something more suitable to this domain (since the OU Noise is well-suited for continuous control problems like CartPole, and not this). Again, if you do this, please let me know of the results!
