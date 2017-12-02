@@ -57,9 +57,8 @@ def train(sess,env,args,actors,critics,noise):
 			s2,r,done,_ = env.step(a) # a is a list with each element being an array
 			replayMemory.add(s,a,r,done,s2)
 			s = s2
-
+			action_dims_done = 0
 			for i in range(env.n):
-				action_dims_done = 0
 				actor = actors[i]
 				critic = critics[i]
 				if replayMemory.size()>int(args['minibatch_size']):
