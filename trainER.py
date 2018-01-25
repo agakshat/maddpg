@@ -28,8 +28,19 @@ def train(sess,env,args,actors,critics,noise):
 	
 	replayMemory = ReplayMemory(int(args['buffer_size']),int(args['random_seed']))
 
+	epsilon_start = 1.0
+	epsilon_final = 0.02
+	num_episodes_anneal = 1000
+	epsilon = epsilon_start
+
 	for ep in range(int(args['max_episodes'])):
+
+		if epsilon>epsilon_final:
+			epsilon = epsilon_start-ep*(epsilon_start-epsilon_final)/num_episodes_anneal
+
 		s = env.reset()
+		for i in range(env.n):
+			s[i] = np.append(s[i],[ep/int(args['max_episodes']), epsilon])
 		episode_reward = np.zeros((env.n,))
 
 		if ep%100==0:
@@ -50,11 +61,18 @@ def train(sess,env,args,actors,critics,noise):
 				env.render()
 
 			a = []
+			zero_noise = np.zeros(5)
 			for i in range(env.n):
 				actor = actors[i]
-				a.append(actor.act(np.reshape(s[i],(-1,actor.state_dim)),noise[i]()).reshape(actor.action_dim,))
-			#print("Action: {}".format(a))
+				if np.random.rand()<epsilon:
+					a.append(np.eye(actor.action_dim)[np.random.randint(actor.action_dim)])
+				else:
+					a.append(actor.act(np.reshape(s[i],(-1,actor.state_dim+2)),zero_noise).reshape(actor.action_dim,))
+
 			s2,r,done,_ = env.step(a) # a is a list with each element being an array
+			for i in range(env.n):
+				s2[i] = np.append(s2[i],[ep/int(args['max_episodes']), epsilon])
+
 			replayMemory.add(s,a,r,done,s2)
 			s = s2
 			action_dims_done = 0
@@ -85,7 +103,7 @@ def train(sess,env,args,actors,critics,noise):
 					
 					actions_pred = []
 					for j in range(env.n):
-						state_batch_j = np.asarray([x for x in  s2_batch[:,j]])
+						state_batch_j = np.asarray([x for x in s2_batch[:,j]])
 						actions_pred.append(actors[j].predict(state_batch_j)) # Should work till here, roughly, probably
 
 					a_temp = np.transpose(np.asarray(actions_pred),(1,0,2))
@@ -110,5 +128,3 @@ def train(sess,env,args,actors,critics,noise):
 
 			if stp == int(args['max_episode_len'])-1:
 				print ('|Reward: {}	| Episode: {:d}'.format(episode_reward,ep))
-
-

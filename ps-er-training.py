@@ -6,7 +6,7 @@ import numpy as np
 #from ReplayMemory import ReplayMemory
 from ExplorationNoise import OrnsteinUhlenbeckActionNoise as OUNoise
 from actorcriticv2 import ActorNetwork,CriticNetwork
-from Train import train
+from trainER import train
 import argparse
 
 def main(args):
@@ -25,16 +25,24 @@ def main(args):
         observation_dim = []
         action_dim = []
         total_action_dim = 0
-        
         for i in range(n):
             total_action_dim = total_action_dim + env.action_space[i].n
         for i in range(n):
             observation_dim.append(env.observation_space[i].shape[0])
             action_dim.append(env.action_space[i].n) # assuming discrete action space here -> otherwise change to something like env.action_space[i].shape[0]
-            actors.append(ActorNetwork(sess,observation_dim[i],action_dim[i],float(args['actor_lr']),float(args['tau'])))
-            critics.append(CriticNetwork(sess,n,observation_dim[i],total_action_dim,float(args['critic_lr']),float(args['tau']),float(args['gamma'])))
+            #actors.append(ActorNetwork(sess,observation_dim[i],action_dim[i],float(args['actor_lr']),float(args['tau'])))
+            #critics.append(CriticNetwork(sess,n,observation_dim[i],total_action_dim,float(args['critic_lr']),float(args['tau']),float(args['gamma'])))
             exploration_noise.append(OUNoise(mu = np.zeros(action_dim[i])))
-
+        
+        actornetwork1 = ActorNetwork(sess,observation_dim[0]+2,action_dim[0],float(args['actor_lr']),float(args['tau']))
+        actornetwork2 = ActorNetwork(sess,observation_dim[n-1]+2,action_dim[n-1],float(args['actor_lr']),float(args['tau']))
+        criticnetwork1 = CriticNetwork(sess,n,observation_dim[0]+2,total_action_dim,float(args['critic_lr']),float(args['tau']),float(args['gamma']))
+        criticnetwork2 = CriticNetwork(sess,n,observation_dim[n-1]+2,total_action_dim,float(args['critic_lr']),float(args['tau']),float(args['gamma']))
+        for i in range(n-1):
+            actors.append(actornetwork1)
+            critics.append(criticnetwork1)
+        actors.append(actornetwork2)
+        critics.append(criticnetwork2)
         #if args['use_gym_monitor']:
         #    if not args['render_env']:
         #        envMonitor = wrappers.Monitor(env, args['monitor_dir'], video_callable=False, force=True)
