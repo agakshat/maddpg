@@ -1,3 +1,5 @@
+### Note: Not Finished.
+
 Implementation of multi-agent deep deterministic policy gradients. 
 
 It's been tested with the simple tag environment in the multiagent-particle-envs repo released by OpenAI, however that version does not have bounds on the environment and has not implemented a Done callback which means that each episode goes to 1000 steps even if the agents have all gone out of bound - which keeps happening and (in my opinion) slows down training. I have put in that done callback function (in the simple tag envt only - though doing it for others should be pretty easy). Please install [my fork](https://github.com/agakshat/multiagent-particle-envs.git) of the multiagent-particle-envs repository to use this repository properly. 
